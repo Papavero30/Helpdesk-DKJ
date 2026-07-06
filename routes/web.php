@@ -64,9 +64,6 @@ Route::post('/logout', function (Request $request) {
     return redirect('/login');
 })->middleware('auth');
 
-// === Health check (uptime monitors / load balancers) ===
-// Reports DB connectivity, queue depth, and the scheduler heartbeat
-// (written every 5 minutes by the scheduler-heartbeat task).
 Route::get('/health', function () {
     $dbOk = true;
     try {
@@ -105,9 +102,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/manager/people', People::class)->name('manager.people');
     Route::get('/manager/oversight', Oversight::class)->name('manager.oversight');
     Route::get('/manager/all-tickets', ManagerAllTickets::class)->name('manager.all-tickets');
-
-    // Admin can also manage reference data + people (actions are logged with the
-    // admin as actor; People is karyawan-scoped for admins — see component guards).
     Route::get('/admin/master-data', MasterData::class)->name('admin.master-data');
     Route::get('/admin/people', People::class)->name('admin.people');
 });
