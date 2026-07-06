@@ -1,0 +1,57 @@
+{
+  "_auto-CD5hMqrI.js": {
+    "file": "assets/auto-CD5hMqrI.js",
+    "name": "auto"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-BRNui-Qb.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/js/admin-dashboard-charts.js": {
+    "file": "assets/admin-dashboard-charts-RktJXY52.js",
+    "name": "admin-dashboard-charts",
+    "src": "resources/js/admin-dashboard-charts.js",
+    "isEntry": true,
+    "imports": [
+      "_auto-CD5hMqrI.js"
+    ]
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-DRX8t9BD.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  },
+  "resources/js/dashboard-charts.js": {
+    "file": "assets/dashboard-charts-3T_G2lgE.js",
+    "name": "dashboard-charts",
+    "src": "resources/js/dashboard-charts.js",
+    "isEntry": true,
+    "imports": [
+      "_auto-CD5hMqrI.js"
+    ]
+  },
+  "resources/js/manager-org-charts.js": {
+    "file": "assets/manager-org-charts-B29CLFa0.js",
+    "name": "manager-org-charts",
+    "src": "resources/js/manager-org-charts.js",
+    "isEntry": true,
+    "imports": [
+      "_auto-CD5hMqrI.js"
+    ]
+  },
+  "resources/js/report-charts.js": {
+    "file": "assets/report-charts-DzaQJvqv.js",
+    "name": "report-charts",
+    "src": "resources/js/report-charts.js",
+    "isEntry": true,
+    "imports": [
+      "_auto-CD5hMqrI.js"
+    ]
+  }
+}

@@ -1,0 +1,87 @@
+{
+    "files": {
+        "resources/js/utils.js": [
+            "dark-theme",
+            "modal"
+        ],
+        "resources/js/components/select.js": [
+            "select"
+        ],
+        "resources/views/components/ui/tab/index.blade.php": [
+            "tabs"
+        ],
+        "resources/views/components/ui/tab/group.blade.php": [
+            "tabs"
+        ],
+        "resources/views/components/ui/tab/panel.blade.php": [
+            "tabs"
+        ],
+        "resources/js/components/autocomplete.js": [
+            "autocomplete"
+        ],
+        "resources/js/globals/modals.js": [
+            "modal"
+        ],
+        "resources/js/components/slider.js": [
+            "slider"
+        ],
+        "resources/css/components/slider.css": [
+            "slider"
+        ],
+        "resources/js/components/combobox.js": [
+            "combobox"
+        ]
+    },
+    "helpers": {
+        "popup": [
+            "select",
+            "autocomplete",
+            "popover"
+        ]
+    },
+    "internalDependencies": {
+        "icon": [
+            "button",
+            "dropdown",
+            "radio",
+            "select",
+            "autocomplete",
+            "key-value",
+            "alerts",
+            "input",
+            "error",
+            "breadcrumbs",
+            "badge",
+            "switch",
+            "navlist",
+            "navbar",
+            "sidebar",
+            "combobox"
+        ],
+        "text": [
+            "select",
+            "combobox"
+        ],
+        "separator": [
+            "otp"
+        ],
+        "button": [
+            "key-value",
+            "theme-switcher",
+            "badge",
+            "navlist",
+            "navbar",
+            "sidebar"
+        ],
+        "dropdown": [
+            "theme-switcher"
+        ],
+        "badge": [
+            "navlist",
+            "navbar"
+        ],
+        "navlist": [
+            "sidebar"
+        ]
+    }
+}
