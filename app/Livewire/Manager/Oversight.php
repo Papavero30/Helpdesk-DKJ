@@ -119,8 +119,9 @@ class Oversight extends Component
         $req = SlaPauseRequest::where('tiket_id', $ticketId)
             ->whereIn('state', ['pending', 'active'])->latest('id')->first();
         if ($req) {
+            $wasPending = $req->state === 'pending';
             app(SlaPauseService::class)->forceResume($req, Auth::id());
-            $this->dispatch('notify', type: 'success', content: 'Deadline pause resumed.');
+            $this->dispatch('notify', type: 'success', content: $wasPending ? 'Pause request cancelled.' : 'Deadline pause resumed.');
         }
     }
 
@@ -176,6 +177,19 @@ class Oversight extends Component
             ->orderBy('created_at')
             ->get();
 
+        // Deadline pause overview: every pause that freezes a deadline right now
+        // (active) or still waits for the requester's answer (pending). A pending
+        // request on a ticket that already finished a pause span is an extend.
+        $pauseRequests = SlaPauseRequest::whereIn('state', ['pending', 'active'])
+            ->with(['tiket.assignedAdmin.karyawan'])
+            ->orderBy('eta')
+            ->get();
+
+        $extendTicketIds = SlaPauseRequest::where('state', 'resumed')
+            ->whereIn('tiket_id', $pauseRequests->pluck('tiket_id'))
+            ->distinct()
+            ->pluck('tiket_id');
+
         $drilldownAdmin = null;
         $drilldownTickets = collect();
         $drilldownCategories = collect();
@@ -218,6 +232,6 @@ class Oversight extends Component
             $drilldownCategories = Kategori::orderBy('urgensi')->get(['id', 'nama_kategori']);
         }
 
-        return view('livewire.manager.oversight', compact('workload', 'drilldownAdmin', 'drilldownTickets', 'drilldownCategories', 'ddTotalPages', 'ddTotal', 'allAdmins', 'unassignedTickets'));
+        return view('livewire.manager.oversight', compact('workload', 'drilldownAdmin', 'drilldownTickets', 'drilldownCategories', 'ddTotalPages', 'ddTotal', 'allAdmins', 'unassignedTickets', 'pauseRequests', 'extendTicketIds'));
     }
 }

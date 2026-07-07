@@ -94,6 +94,58 @@
         </table>
     </div>
 
+    {{-- Deadline pauses --}}
+    <div class="mt-6 mb-4">
+        <h2 class="text-xl font-bold text-dongker-700">Deadline Pauses</h2>
+        <p class="text-xs text-gray-500">Tickets with a frozen deadline or a pause request that waits for an answer, including extend requests.</p>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead>
+                <tr class="border-b border-gray-100 text-[11px] uppercase tracking-wider text-gray-400">
+                    <th class="px-5 py-3 font-semibold">#TKT</th>
+                    <th class="px-3 py-3 font-semibold">Description</th>
+                    <th class="px-3 py-3 font-semibold">PIC</th>
+                    <th class="px-3 py-3 font-semibold">Reason</th>
+                    <th class="px-3 py-3 font-semibold">Until</th>
+                    <th class="px-3 py-3 font-semibold">Status</th>
+                    <th class="px-5 py-3 font-semibold text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($pauseRequests as $pr)
+                    @php $isExtend = $pr->state === 'pending' && $extendTicketIds->contains($pr->tiket_id); @endphp
+                    <tr wire:key="pause-{{ $pr->id }}" class="border-b border-gray-50">
+                        <td class="px-5 py-3 font-mono text-xs">
+                            <a href="/ticket/{{ $pr->tiket_id }}" target="_blank" rel="noopener" class="hover:underline" style="color:#0E4260;">#TKT{{ str_pad($pr->tiket_id, 2, '0', STR_PAD_LEFT) }}</a>
+                        </td>
+                        <td class="px-3 py-3 max-w-xs"><span class="block truncate text-gray-700">{{ $pr->tiket?->deskripsi }}</span></td>
+                        <td class="px-3 py-3 text-gray-700 font-medium">{{ $pr->tiket?->assignedAdmin?->karyawan?->nama ?? 'No PIC' }}</td>
+                        <td class="px-3 py-3 max-w-[220px]"><span class="block truncate text-gray-600" title="{{ $pr->reason }}">{{ $pr->reason }}</span></td>
+                        <td class="px-3 py-3 text-gray-600 whitespace-nowrap">{{ $pr->eta?->format('d M Y, H:i') }}</td>
+                        <td class="px-3 py-3 whitespace-nowrap">
+                            @if($pr->state === 'active')
+                                <span class="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">Paused</span>
+                            @elseif($isExtend)
+                                <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Extend Requested</span>
+                            @else
+                                <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Waiting Approval</span>
+                            @endif
+                        </td>
+                        <td class="px-5 py-3 text-right">
+                            <button type="button" wire:click="forceResumePause({{ $pr->tiket_id }})"
+                                    class="rounded-lg border border-gray-200 px-3 py-1 text-[11px] font-semibold text-gray-600 transition hover:border-dongker-200 hover:text-dongker-600">
+                                {{ $pr->state === 'active' ? 'Force resume' : 'Cancel request' }}
+                            </button>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="7" class="px-5 py-10 text-center text-sm text-gray-400">No deadline pauses right now.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
     {{-- Drill-down modal --}}
     <div
         x-data="{ open: @entangle('showDrilldownModal') }"
