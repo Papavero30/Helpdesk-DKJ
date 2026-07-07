@@ -6,6 +6,31 @@
         <p class="text-xs text-gray-500">Live active ticket load per admin. Click an admin to rebalance their queue.</p>
     </div>
 
+    {{-- Workload toolbar --}}
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+        <div class="relative min-w-[220px] flex-1">
+            <x-ui.icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+            <input type="text" wire:model.live.debounce.300ms="wlSearch"
+                   placeholder="Search admin or plant"
+                   class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200" />
+        </div>
+        <select wire:model.live="wlPlant"
+                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
+            <option value="">All plants</option>
+            @foreach($plants as $p)
+                <option value="{{ $p->nama_lokasi }}">{{ $p->nama_lokasi }}</option>
+            @endforeach
+        </select>
+        <select wire:model.live="wlSort"
+                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
+            <option value="name_asc">Sort: Name A to Z</option>
+            <option value="name_desc">Sort: Name Z to A</option>
+            <option value="active_desc">Sort: Most active</option>
+            <option value="overdue_desc">Sort: Most overdue</option>
+            <option value="awaiting_desc">Sort: Most awaiting</option>
+        </select>
+    </div>
+
     {{-- Workload table --}}
     <div class="rounded-xl border border-gray-200 bg-white overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -36,16 +61,52 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-5 py-10 text-center text-sm text-gray-400">No admins found.</td></tr>
+                    <tr><td colspan="7" class="px-5 py-10 text-center text-sm text-gray-400">{{ trim($wlSearch) !== '' || $wlPlant !== '' ? 'No admins match your search or filters.' : 'No admins found.' }}</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
+    @if($wlTotal > 0)
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <span class="text-xs text-gray-500">Page <span class="font-semibold text-dongker-600">{{ $wlPage }}</span> of {{ $wlTotalPages }}</span>
+            <x-ui.pager :current="$wlPage" :total="$wlTotalPages" jump="wlGoToPage" />
+        </div>
+    @endif
 
     {{-- Unassigned tickets --}}
     <div class="mt-6 mb-4">
         <h2 class="text-xl font-bold text-dongker-700">Unassigned Tickets</h2>
         <p class="text-xs text-gray-500">Open tickets with no admin yet. Assign to any admin across all plants.</p>
+    </div>
+
+    {{-- Unassigned toolbar --}}
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+        <div class="relative min-w-[220px] flex-1">
+            <x-ui.icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+            <input type="text" wire:model.live.debounce.300ms="unSearch"
+                   placeholder="Search ticket number, description, or requester"
+                   class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200" />
+        </div>
+        <select wire:model.live="unCategory"
+                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
+            <option value="">All categories</option>
+            @foreach($categories as $c)
+                <option value="{{ $c->id }}">{{ $c->nama_kategori }}</option>
+            @endforeach
+        </select>
+        <select wire:model.live="unPlant"
+                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
+            <option value="">All plants</option>
+            @foreach($plants as $p)
+                <option value="{{ $p->id }}">{{ $p->nama_lokasi }}</option>
+            @endforeach
+        </select>
+        <select wire:model.live="unSort"
+                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
+            <option value="oldest">Sort: Oldest first</option>
+            <option value="newest">Sort: Newest first</option>
+            <option value="urgency">Sort: Category urgency</option>
+        </select>
     </div>
     <div class="rounded-xl border border-gray-200 bg-white overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -88,16 +149,45 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">No unassigned tickets.</td></tr>
+                    <tr><td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">{{ trim($unSearch) !== '' || $unCategory !== '' || $unPlant !== '' ? 'No unassigned tickets match your search or filters.' : 'No unassigned tickets.' }}</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
+    @if($unTotal > 0)
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <span class="text-xs text-gray-500">Page <span class="font-semibold text-dongker-600">{{ $unPage }}</span> of {{ $unTotalPages }}</span>
+            <x-ui.pager :current="$unPage" :total="$unTotalPages" jump="unGoToPage" />
+        </div>
+    @endif
 
     {{-- Deadline pauses --}}
     <div class="mt-6 mb-4">
         <h2 class="text-xl font-bold text-dongker-700">Deadline Pauses</h2>
         <p class="text-xs text-gray-500">Tickets with a frozen deadline or a pause request that waits for an answer, including extend requests.</p>
+    </div>
+
+    {{-- Deadline pauses toolbar --}}
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+        <div class="relative min-w-[220px] flex-1">
+            <x-ui.icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+            <input type="text" wire:model.live.debounce.300ms="dpSearch"
+                   placeholder="Search ticket, PIC, or reason"
+                   class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200" />
+        </div>
+        <select wire:model.live="dpStatus"
+                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
+            <option value="all">All status</option>
+            <option value="active">Paused</option>
+            <option value="waiting">Waiting Approval</option>
+            <option value="extend">Extend Requested</option>
+        </select>
+        <select wire:model.live="dpSort"
+                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
+            <option value="eta_asc">Sort: Until soonest first</option>
+            <option value="eta_desc">Sort: Until latest first</option>
+            <option value="ticket_desc">Sort: Newest ticket</option>
+        </select>
     </div>
     <div class="rounded-xl border border-gray-200 bg-white overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -147,11 +237,17 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-5 py-10 text-center text-sm text-gray-400">No deadline pauses right now.</td></tr>
+                    <tr><td colspan="7" class="px-5 py-10 text-center text-sm text-gray-400">{{ trim($dpSearch) !== '' || $dpStatus !== 'all' ? 'No deadline pauses match your search or filters.' : 'No deadline pauses right now.' }}</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
+    @if($dpTotal > 0)
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <span class="text-xs text-gray-500">Page <span class="font-semibold text-dongker-600">{{ $dpPage }}</span> of {{ $dpTotalPages }}</span>
+            <x-ui.pager :current="$dpPage" :total="$dpTotalPages" jump="dpGoToPage" />
+        </div>
+    @endif
 
     {{-- Drill-down modal --}}
     <div
