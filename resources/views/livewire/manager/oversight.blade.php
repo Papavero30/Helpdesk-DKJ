@@ -133,10 +133,17 @@
                             @endif
                         </td>
                         <td class="px-5 py-3 text-right">
-                            <button type="button" wire:click="forceResumePause({{ $pr->tiket_id }})"
-                                    class="rounded-lg border border-gray-200 px-3 py-1 text-[11px] font-semibold text-gray-600 transition hover:border-dongker-200 hover:text-dongker-600">
-                                {{ $pr->state === 'active' ? 'Force resume' : 'Cancel request' }}
-                            </button>
+                            @if($pr->state === 'active')
+                                <button type="button" wire:click="forceResumePause({{ $pr->tiket_id }})"
+                                        class="rounded-lg border border-gray-200 px-3 py-1 text-[11px] font-semibold text-gray-600 transition hover:border-dongker-200 hover:text-dongker-600">
+                                    Force resume
+                                </button>
+                            @else
+                                <button type="button" wire:click="cancelPauseRequest({{ $pr->id }})"
+                                        class="rounded-lg border border-gray-200 px-3 py-1 text-[11px] font-semibold text-gray-600 transition hover:border-dongker-200 hover:text-dongker-600">
+                                    Cancel request
+                                </button>
+                            @endif
                         </td>
                     </tr>
                 @empty

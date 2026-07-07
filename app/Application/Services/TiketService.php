@@ -526,14 +526,18 @@ class TiketService
     {
         $now = now();
 
-        // Finalize any open pause so its time is credited before scoring the outcome.
-        $openPause = $tiket->slaPauseRequests()->whereIn('state', ['active', 'pending'])->first();
-        if ($openPause) {
+        // Finalize every open pause so its time is credited before scoring the
+        // outcome. An active pause and a pending extension can coexist, so both
+        // rows must be resolved here.
+        $openPauses = $tiket->slaPauseRequests()->whereIn('state', ['active', 'pending'])->get();
+        foreach ($openPauses as $openPause) {
             if ($openPause->state === 'active') {
                 $this->slaPauseService->resume($openPause, 'manual_admin', null);
             } else { // pending -> cancel it; the request never took effect
                 $openPause->update(['state' => 'cancelled', 'decided_note' => 'Ticket closed before approval', 'approved_at' => now()]);
             }
+        }
+        if ($openPauses->isNotEmpty()) {
             $tiket->refresh();
         }
 

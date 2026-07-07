@@ -54,22 +54,57 @@ class SlaPauseService
             return;
         }
 
+        $tiket = $req->tiket;
+
+        // Approving an extension while the original pause is still frozen: the old
+        // span ends here and the new one starts immediately, so the freeze continues
+        // without a gap and no second is ever counted twice.
+        $sibling = $tiket->slaPauseRequests()
+            ->where('state', 'active')
+            ->where('id', '!=', $req->id)
+            ->first();
+
         $req->update([
             'state' => 'active',
             'approved_by' => $approverId,
             'approved_at' => now(),
         ]);
 
-        // Retroactive: the wait counts from the moment it was requested.
-        $req->tiket->update(['sla_paused_at' => $req->requested_at]);
+        if ($sibling) {
+            $start = $tiket->sla_paused_at ?? $sibling->requested_at;
+            $seconds = max(0, now()->getTimestamp() - $start->getTimestamp());
 
+            $sibling->update([
+                'state' => 'resumed',
+                'resumed_at' => now(),
+                'resume_kind' => 'extended',
+                'paused_seconds' => $seconds,
+            ]);
+
+            $tiket->update([
+                'sla_paused_at' => now(),
+                'sla_paused_total_seconds' => (int) ($tiket->sla_paused_total_seconds ?? 0) + $seconds,
+            ]);
+        } else {
+            // Retroactive: the wait counts from the moment it was requested, but never
+            // earlier than the end of a span that was already counted (for example an
+            // extension approved after the original pause auto resumed on its ETA).
+            $start = $req->requested_at;
+            $lastEnd = $tiket->slaPauseRequests()->where('state', 'resumed')->max('resumed_at');
+            if ($lastEnd !== null && Carbon::parse($lastEnd)->greaterThan($start)) {
+                $start = Carbon::parse($lastEnd);
+            }
+            $tiket->update(['sla_paused_at' => $start]);
+        }
+
+        $what = $sibling ? 'Deadline pause extension' : 'Deadline pause';
         $this->logService->catat(
-            $req->tiket,
+            $tiket,
             $approverId === null ? 'sla_pause_auto_approved' : 'sla_pause_approved',
             userId: $approverId,
             keterangan: $approverId === null
-                ? 'Deadline pause auto approved after '.self::AUTO_APPROVE_HOURS.' hours of no response'
-                : 'Deadline pause approved by requester',
+                ? $what.' auto approved after '.self::AUTO_APPROVE_HOURS.' hours of no response'
+                : $what.' approved by requester',
         );
 
         $this->notificationService->slaPauseApproved($req, auto: $approverId === null);
@@ -115,11 +150,24 @@ class SlaPauseService
         }
 
         $tiket = $req->tiket;
-        $this->resume($req, 'manual_admin', $adminId); // finalize current span
+        if ($tiket->slaPauseRequests()->where('state', 'pending')->exists()) {
+            throw new \DomainException('An extension request is already waiting for an answer.');
+        }
 
-        $new = $this->request($tiket->fresh(), $adminId, $req->reason, $newEta, $req->attachment_path);
+        // The original pause keeps running untouched until its own ETA; only the
+        // extension asks for approval. Rejecting it therefore never ends the pause.
+        $new = $tiket->slaPauseRequests()->create([
+            'requested_by' => $adminId,
+            'requested_at' => now(),
+            'reason' => $req->reason,
+            'attachment_path' => $req->attachment_path,
+            'eta' => $newEta,
+            'state' => 'pending',
+        ]);
 
         $this->logService->catat($tiket, 'sla_pause_extended', userId: $adminId, keterangan: 'Deadline pause extension requested with a new ETA');
+
+        $this->notificationService->slaPauseRequested($new);
 
         return $new;
     }
