@@ -7,28 +7,98 @@
     </div>
 
     {{-- Workload toolbar --}}
-    <div class="mb-3 flex flex-wrap items-center gap-2">
-        <div class="relative min-w-[220px] flex-1">
-            <x-ui.icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+    @php $wlFilterCount = count($wlPlants); $wlHasSort = $wlSort !== 'name_asc'; @endphp
+    <div class="mb-3 flex flex-col lg:flex-row lg:items-center gap-3">
+        <div class="relative flex-1">
+            <x-ui.icon name="magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
             <input type="text" wire:model.live.debounce.300ms="wlSearch"
-                   placeholder="Search admin or plant"
-                   class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200" />
+                   placeholder="Search by admin or plant name..."
+                   class="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2.5 text-sm text-gray-700 focus:ring-2 focus:ring-dongker-400" />
         </div>
-        <select wire:model.live="wlPlant"
-                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
-            <option value="">All plants</option>
-            @foreach($plants as $p)
-                <option value="{{ $p->nama_lokasi }}">{{ $p->nama_lokasi }}</option>
-            @endforeach
-        </select>
-        <select wire:model.live="wlSort"
-                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
-            <option value="name_asc">Sort: Name A to Z</option>
-            <option value="name_desc">Sort: Name Z to A</option>
-            <option value="active_desc">Sort: Most active</option>
-            <option value="overdue_desc">Sort: Most overdue</option>
-            <option value="awaiting_desc">Sort: Most awaiting</option>
-        </select>
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- Filter --}}
+            <x-ui.popover>
+                <x-ui.popover.trigger>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 hover:border-dongker-300 hover:text-dongker-600">
+                        <x-ui.icon name="funnel" class="size-4" />
+                        Filter
+                        @if($wlFilterCount > 0)
+                            <span class="rounded-full bg-dongker-100 px-2 py-0.5 text-[10px] font-semibold text-dongker-700">{{ $wlFilterCount }}</span>
+                        @endif
+                    </button>
+                </x-ui.popover.trigger>
+                <x-ui.popover.overlay class="!w-72 p-4">
+                    <div class="space-y-4"
+                         x-data="{
+                             stagedPlants: @js($wlPlants),
+                             applied() { $wire.set('wlPlants', this.stagedPlants, false); $wire.$refresh(); hide(); },
+                             resetStaged() { this.stagedPlants = []; $wire.set('wlPlants', [], false); $wire.$refresh(); }
+                         }">
+                        <div>
+                            <div class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Plant</div>
+                            <div class="mt-2 space-y-2">
+                                @foreach($plants as $p)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" value="{{ $p->nama_lokasi }}" x-model="stagedPlants"
+                                               class="size-4 rounded border-gray-300 text-dongker-600 focus:ring-dongker-400" />
+                                        <span class="text-sm text-gray-700">{{ $p->nama_lokasi }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <button type="button" x-on:click="resetStaged()" class="text-xs font-semibold text-gray-400 hover:text-dongker-600">Reset</button>
+                            <button type="button" x-on:click="applied()" class="inline-flex items-center rounded-lg bg-dongker-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-dongker-500">Apply</button>
+                        </div>
+                    </div>
+                </x-ui.popover.overlay>
+            </x-ui.popover>
+
+            {{-- Sort --}}
+            <x-ui.popover>
+                <x-ui.popover.trigger>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 hover:border-dongker-300 hover:text-dongker-600">
+                        <x-ui.icon name="bars-arrow-down" class="size-4" />
+                        Sort
+                        @if($wlHasSort)
+                            <span class="rounded-full bg-dongker-100 px-2 py-0.5 text-[10px] font-semibold text-dongker-700">1</span>
+                        @endif
+                    </button>
+                </x-ui.popover.trigger>
+                <x-ui.popover.overlay class="!w-72 p-4">
+                    <div class="space-y-4"
+                         x-data="{
+                             stagedSort: @js($wlSort),
+                             applied() { $wire.set('wlSort', this.stagedSort, false); $wire.$refresh(); hide(); },
+                             resetStaged() { this.stagedSort = 'name_asc'; $wire.set('wlSort', 'name_asc', false); $wire.$refresh(); }
+                         }">
+                        <div>
+                            <div class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Sort by</div>
+                            <div class="mt-2 space-y-2">
+                                @foreach([
+                                    'name_asc' => 'Name (A to Z)',
+                                    'name_desc' => 'Name (Z to A)',
+                                    'active_desc' => 'Most active',
+                                    'overdue_desc' => 'Most overdue',
+                                    'awaiting_desc' => 'Most awaiting',
+                                ] as $val => $label)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" value="{{ $val }}" x-model="stagedSort" class="size-4 text-dongker-600 focus:ring-dongker-400" />
+                                        <span class="text-sm text-gray-700">{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <button type="button" x-on:click="resetStaged()" class="text-xs font-semibold text-gray-400 hover:text-dongker-600">Reset</button>
+                            <button type="button" x-on:click="applied()" class="inline-flex items-center rounded-lg bg-dongker-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-dongker-500">Apply</button>
+                        </div>
+                    </div>
+                </x-ui.popover.overlay>
+            </x-ui.popover>
+        </div>
     </div>
 
     {{-- Workload table --}}
@@ -61,7 +131,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-5 py-10 text-center text-sm text-gray-400">{{ trim($wlSearch) !== '' || $wlPlant !== '' ? 'No admins match your search or filters.' : 'No admins found.' }}</td></tr>
+                    <tr><td colspan="7" class="px-5 py-10 text-center text-sm text-gray-400">{{ trim($wlSearch) !== '' || ! empty($wlPlants) ? 'No admins match your search or filters.' : 'No admins found.' }}</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -80,33 +150,118 @@
     </div>
 
     {{-- Unassigned toolbar --}}
-    <div class="mb-3 flex flex-wrap items-center gap-2">
-        <div class="relative min-w-[220px] flex-1">
-            <x-ui.icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+    @php $unFilterCount = count($unCategories) + count($unPlants); $unHasSort = $unSort !== 'oldest'; @endphp
+    <div class="mb-3 flex flex-col lg:flex-row lg:items-center gap-3">
+        <div class="relative flex-1">
+            <x-ui.icon name="magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
             <input type="text" wire:model.live.debounce.300ms="unSearch"
-                   placeholder="Search ticket number, description, or requester"
-                   class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200" />
+                   placeholder="Search by ticket number, description, or requester name..."
+                   class="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2.5 text-sm text-gray-700 focus:ring-2 focus:ring-dongker-400" />
         </div>
-        <select wire:model.live="unCategory"
-                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
-            <option value="">All categories</option>
-            @foreach($categories as $c)
-                <option value="{{ $c->id }}">{{ $c->nama_kategori }}</option>
-            @endforeach
-        </select>
-        <select wire:model.live="unPlant"
-                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
-            <option value="">All plants</option>
-            @foreach($plants as $p)
-                <option value="{{ $p->id }}">{{ $p->nama_lokasi }}</option>
-            @endforeach
-        </select>
-        <select wire:model.live="unSort"
-                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
-            <option value="oldest">Sort: Oldest first</option>
-            <option value="newest">Sort: Newest first</option>
-            <option value="urgency">Sort: Category urgency</option>
-        </select>
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- Filter --}}
+            <x-ui.popover>
+                <x-ui.popover.trigger>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 hover:border-dongker-300 hover:text-dongker-600">
+                        <x-ui.icon name="funnel" class="size-4" />
+                        Filter
+                        @if($unFilterCount > 0)
+                            <span class="rounded-full bg-dongker-100 px-2 py-0.5 text-[10px] font-semibold text-dongker-700">{{ $unFilterCount }}</span>
+                        @endif
+                    </button>
+                </x-ui.popover.trigger>
+                <x-ui.popover.overlay class="!w-72 p-4">
+                    <div class="space-y-4"
+                         x-data="{
+                             stagedCategories: @js($unCategories),
+                             stagedPlants: @js($unPlants),
+                             applied() {
+                                 $wire.set('unCategories', this.stagedCategories, false);
+                                 $wire.set('unPlants', this.stagedPlants, false);
+                                 $wire.$refresh(); hide();
+                             },
+                             resetStaged() {
+                                 this.stagedCategories = []; this.stagedPlants = [];
+                                 $wire.set('unCategories', [], false);
+                                 $wire.set('unPlants', [], false);
+                                 $wire.$refresh();
+                             }
+                         }">
+                        <div>
+                            <div class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Category</div>
+                            <div class="mt-2 space-y-2">
+                                @foreach($categories as $c)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" value="{{ $c->id }}" x-model.number="stagedCategories"
+                                               class="size-4 rounded border-gray-300 text-dongker-600 focus:ring-dongker-400" />
+                                        <span class="text-sm text-gray-700">{{ $c->nama_kategori }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Plant</div>
+                            <div class="mt-2 space-y-2">
+                                @foreach($plants as $p)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" value="{{ $p->id }}" x-model.number="stagedPlants"
+                                               class="size-4 rounded border-gray-300 text-dongker-600 focus:ring-dongker-400" />
+                                        <span class="text-sm text-gray-700">{{ $p->nama_lokasi }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <button type="button" x-on:click="resetStaged()" class="text-xs font-semibold text-gray-400 hover:text-dongker-600">Reset</button>
+                            <button type="button" x-on:click="applied()" class="inline-flex items-center rounded-lg bg-dongker-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-dongker-500">Apply</button>
+                        </div>
+                    </div>
+                </x-ui.popover.overlay>
+            </x-ui.popover>
+
+            {{-- Sort --}}
+            <x-ui.popover>
+                <x-ui.popover.trigger>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 hover:border-dongker-300 hover:text-dongker-600">
+                        <x-ui.icon name="bars-arrow-down" class="size-4" />
+                        Sort
+                        @if($unHasSort)
+                            <span class="rounded-full bg-dongker-100 px-2 py-0.5 text-[10px] font-semibold text-dongker-700">1</span>
+                        @endif
+                    </button>
+                </x-ui.popover.trigger>
+                <x-ui.popover.overlay class="!w-72 p-4">
+                    <div class="space-y-4"
+                         x-data="{
+                             stagedSort: @js($unSort),
+                             applied() { $wire.set('unSort', this.stagedSort, false); $wire.$refresh(); hide(); },
+                             resetStaged() { this.stagedSort = 'oldest'; $wire.set('unSort', 'oldest', false); $wire.$refresh(); }
+                         }">
+                        <div>
+                            <div class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Sort by</div>
+                            <div class="mt-2 space-y-2">
+                                @foreach([
+                                    'oldest' => 'Oldest first',
+                                    'newest' => 'Newest first',
+                                    'urgency' => 'Category urgency',
+                                ] as $val => $label)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" value="{{ $val }}" x-model="stagedSort" class="size-4 text-dongker-600 focus:ring-dongker-400" />
+                                        <span class="text-sm text-gray-700">{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <button type="button" x-on:click="resetStaged()" class="text-xs font-semibold text-gray-400 hover:text-dongker-600">Reset</button>
+                            <button type="button" x-on:click="applied()" class="inline-flex items-center rounded-lg bg-dongker-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-dongker-500">Apply</button>
+                        </div>
+                    </div>
+                </x-ui.popover.overlay>
+            </x-ui.popover>
+        </div>
     </div>
     <div class="rounded-xl border border-gray-200 bg-white overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -149,7 +304,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">{{ trim($unSearch) !== '' || $unCategory !== '' || $unPlant !== '' ? 'No unassigned tickets match your search or filters.' : 'No unassigned tickets.' }}</td></tr>
+                    <tr><td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">{{ trim($unSearch) !== '' || ! empty($unCategories) || ! empty($unPlants) ? 'No unassigned tickets match your search or filters.' : 'No unassigned tickets.' }}</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -168,26 +323,100 @@
     </div>
 
     {{-- Deadline pauses toolbar --}}
-    <div class="mb-3 flex flex-wrap items-center gap-2">
-        <div class="relative min-w-[220px] flex-1">
-            <x-ui.icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+    @php $dpFilterCount = $dpStatus !== 'all' ? 1 : 0; $dpHasSort = $dpSort !== 'eta_asc'; @endphp
+    <div class="mb-3 flex flex-col lg:flex-row lg:items-center gap-3">
+        <div class="relative flex-1">
+            <x-ui.icon name="magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
             <input type="text" wire:model.live.debounce.300ms="dpSearch"
-                   placeholder="Search ticket, PIC, or reason"
-                   class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200" />
+                   placeholder="Search by ticket, PIC, or reason..."
+                   class="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2.5 text-sm text-gray-700 focus:ring-2 focus:ring-dongker-400" />
         </div>
-        <select wire:model.live="dpStatus"
-                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
-            <option value="all">All status</option>
-            <option value="active">Paused</option>
-            <option value="waiting">Waiting Approval</option>
-            <option value="extend">Extend Requested</option>
-        </select>
-        <select wire:model.live="dpSort"
-                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-dongker-300 focus:ring-2 focus:ring-dongker-200">
-            <option value="eta_asc">Sort: Until soonest first</option>
-            <option value="eta_desc">Sort: Until latest first</option>
-            <option value="ticket_desc">Sort: Newest ticket</option>
-        </select>
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- Filter --}}
+            <x-ui.popover>
+                <x-ui.popover.trigger>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 hover:border-dongker-300 hover:text-dongker-600">
+                        <x-ui.icon name="funnel" class="size-4" />
+                        Filter
+                        @if($dpFilterCount > 0)
+                            <span class="rounded-full bg-dongker-100 px-2 py-0.5 text-[10px] font-semibold text-dongker-700">{{ $dpFilterCount }}</span>
+                        @endif
+                    </button>
+                </x-ui.popover.trigger>
+                <x-ui.popover.overlay class="!w-72 p-4">
+                    <div class="space-y-4"
+                         x-data="{
+                             stagedStatus: @js($dpStatus),
+                             applied() { $wire.set('dpStatus', this.stagedStatus, false); $wire.$refresh(); hide(); },
+                             resetStaged() { this.stagedStatus = 'all'; $wire.set('dpStatus', 'all', false); $wire.$refresh(); }
+                         }">
+                        <div>
+                            <div class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Status</div>
+                            <div class="mt-2 space-y-2">
+                                @foreach([
+                                    'all' => 'All status',
+                                    'active' => 'Paused',
+                                    'waiting' => 'Waiting Approval',
+                                    'extend' => 'Extend Requested',
+                                ] as $val => $label)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" value="{{ $val }}" x-model="stagedStatus" class="size-4 text-dongker-600 focus:ring-dongker-400" />
+                                        <span class="text-sm text-gray-700">{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <button type="button" x-on:click="resetStaged()" class="text-xs font-semibold text-gray-400 hover:text-dongker-600">Reset</button>
+                            <button type="button" x-on:click="applied()" class="inline-flex items-center rounded-lg bg-dongker-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-dongker-500">Apply</button>
+                        </div>
+                    </div>
+                </x-ui.popover.overlay>
+            </x-ui.popover>
+
+            {{-- Sort --}}
+            <x-ui.popover>
+                <x-ui.popover.trigger>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 hover:border-dongker-300 hover:text-dongker-600">
+                        <x-ui.icon name="bars-arrow-down" class="size-4" />
+                        Sort
+                        @if($dpHasSort)
+                            <span class="rounded-full bg-dongker-100 px-2 py-0.5 text-[10px] font-semibold text-dongker-700">1</span>
+                        @endif
+                    </button>
+                </x-ui.popover.trigger>
+                <x-ui.popover.overlay class="!w-72 p-4">
+                    <div class="space-y-4"
+                         x-data="{
+                             stagedSort: @js($dpSort),
+                             applied() { $wire.set('dpSort', this.stagedSort, false); $wire.$refresh(); hide(); },
+                             resetStaged() { this.stagedSort = 'eta_asc'; $wire.set('dpSort', 'eta_asc', false); $wire.$refresh(); }
+                         }">
+                        <div>
+                            <div class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Sort by</div>
+                            <div class="mt-2 space-y-2">
+                                @foreach([
+                                    'eta_asc' => 'Until (soonest first)',
+                                    'eta_desc' => 'Until (latest first)',
+                                    'ticket_desc' => 'Newest ticket',
+                                ] as $val => $label)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" value="{{ $val }}" x-model="stagedSort" class="size-4 text-dongker-600 focus:ring-dongker-400" />
+                                        <span class="text-sm text-gray-700">{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <button type="button" x-on:click="resetStaged()" class="text-xs font-semibold text-gray-400 hover:text-dongker-600">Reset</button>
+                            <button type="button" x-on:click="applied()" class="inline-flex items-center rounded-lg bg-dongker-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-dongker-500">Apply</button>
+                        </div>
+                    </div>
+                </x-ui.popover.overlay>
+            </x-ui.popover>
+        </div>
     </div>
     <div class="rounded-xl border border-gray-200 bg-white overflow-x-auto">
         <table class="w-full text-left text-sm">
