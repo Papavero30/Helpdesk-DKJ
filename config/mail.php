@@ -46,7 +46,21 @@ return [
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
-            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+
+            // On-prem / shared mail servers often present a self-signed or
+            // hostname-mismatched certificate, which aborts the STARTTLS
+            // handshake. MAIL_VERIFY_PEER=false skips that validation.
+            'verify_peer' => env('MAIL_VERIFY_PEER', true),
+
+            // Identity sent in the EHLO command. Falls back to the APP_URL host;
+            // a bare IP is wrapped in brackets ("[1.2.3.4]") as RFC 5321 requires,
+            // because many mail servers reject a naked IP — or the "[127.0.0.1]"
+            // that Symfony defaults to when this resolves to nothing.
+            'local_domain' => env('MAIL_EHLO_DOMAIN') ?: (static function () {
+                $host = parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST) ?: 'localhost';
+
+                return filter_var($host, FILTER_VALIDATE_IP) ? "[{$host}]" : $host;
+            })(),
         ],
 
         'ses' => [
@@ -114,5 +128,20 @@ return [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queued Send Rate Limit
+    |--------------------------------------------------------------------------
+    |
+    | Maximum email notifications the queue worker may send per second. Jobs
+    | that would exceed this are released back to the queue and retried rather
+    | than dropped. Tune it to whatever the SMTP host actually allows — hosted
+    | APIs are usually strict (Resend's free tier caps at 2/sec), while your own
+    | mail server generally is not. See App\Notifications\Concerns\BrandedMail.
+    |
+    */
+
+    'rate_limit_per_second' => (int) env('MAIL_RATE_LIMIT_PER_SECOND', 10),
 
 ];

@@ -2,10 +2,12 @@
     $awaitingConfirm = $pending['awaiting_confirmation'] ?? collect();
     $awaitingRating = $pending['awaiting_rating'] ?? collect();
     $awaitingRepetitive = $pending['awaiting_repetitive'] ?? collect();
+    $awaitingPause = $pending['awaiting_pause'] ?? collect();
 
-    // Merge the three pending streams into one rows-list, each row tagged with its action type.
+    // Merge the four pending streams into one rows-list, each row tagged with its action type.
     $pendingRows = collect()
         ->concat($awaitingConfirm->map(fn ($t) => ['ticket' => $t, 'action' => 'confirm', 'when' => $t->siap_konfirmasi_at]))
+        ->concat($awaitingPause->map(fn ($t) => ['ticket' => $t, 'action' => 'pause', 'when' => $t->slaPauseRequests->first()?->requested_at]))
         ->concat($awaitingRepetitive->map(fn ($t) => ['ticket' => $t, 'action' => 'repetitive', 'when' => $t->repetitive_review_admin_at]))
         ->concat($awaitingRating->map(fn ($t) => ['ticket' => $t, 'action' => 'rate', 'when' => $t->ditutup_pada]))
         ->sortByDesc(fn ($row) => $row['when'])
@@ -99,6 +101,7 @@
                                     'confirm' => ['label' => 'Confirm resolution', 'class' => 'bg-blue-100 text-blue-700'],
                                     'rate' => ['label' => 'Give rating', 'class' => 'bg-amber-100 text-amber-700'],
                                     'repetitive' => ['label' => 'Repetitive review', 'class' => 'bg-orange-100 text-orange-700'],
+                                    'pause' => ['label' => 'Deadline pause', 'class' => 'bg-violet-100 text-violet-700'],
                                 };
                             @endphp
                             <tr wire:key="pending-{{ $action }}-{{ $t->id }}"

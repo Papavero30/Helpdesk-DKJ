@@ -170,10 +170,38 @@ class PersonImportService
     }
 
     /**
-     * Token match a spreadsheet cell against reference rows.
-     * A reference name matches when ALL of its word tokens appear as whole
-     * words in the cell (case-insensitive). Among matches the one with the
-     * most tokens wins (tie-break: longest name).
+     * Ejaan berbeda yang harus dianggap satu kata: hasil terjemahan
+     * (Produksi = Production) dan singkatan (RND = R&D). Dipakai pada kedua sisi,
+     * baik sel spreadsheet maupun nama master data, sehingga keduanya bertemu di
+     * bentuk kanonik yang sama. Salah ketik biasa tidak perlu dicantumkan di sini
+     * karena sudah tertangkap toleransi jarak edit.
+     */
+    private const TOKEN_ALIASES = [
+        'logistik' => 'logistic',
+        'produksi' => 'production',
+        'keuangan' => 'finance',
+        'pemasaran' => 'marketing',
+        'pembelian' => 'purchasing',
+        'pemeliharaan' => 'maintenance',
+        'perawatan' => 'maintenance',
+        'tekhnisi' => 'teknisi',
+        'rnd' => 'rd',   // "R&D" menjadi satu kata "rd" setelah '&' dibuang
+        'hcga' => 'hrga',
+    ];
+
+    /** Kemiripan minimal untuk pencocokan seluruh kalimat (cadangan terakhir). */
+    private const PHRASE_SIMILARITY = 0.85;
+
+    /**
+     * Cocokkan satu sel spreadsheet dengan daftar master data.
+     *
+     * Sebuah nama master data cocok bila SEMUA katanya muncul di dalam sel, dengan
+     * toleransi salah ketik: makin panjang kata, makin banyak huruf salah yang
+     * dimaafkan (sampai 3 huruf harus persis, 4 sampai 6 huruf boleh salah 1,
+     * lebih panjang boleh salah 2). Pemenangnya yang katanya paling banyak; bila
+     * seri, yang paling sedikit salah ketiknya, lalu yang namanya paling panjang.
+     *
+     * Bila tidak ada yang cocok per kata, dicoba kemiripan seluruh kalimat.
      *
      * @param  array<int, string>  $refs  id => name
      * @return array{id: int, name: string}|null
@@ -184,10 +212,10 @@ class PersonImportService
         if ($cellTokens === []) {
             return null;
         }
-        $cellSet = array_flip($cellTokens);
 
         $best = null;
         $bestScore = 0;
+        $bestDistance = PHP_INT_MAX;
         $bestLen = 0;
 
         foreach ($refs as $id => $name) {
@@ -196,12 +224,15 @@ class PersonImportService
                 continue;
             }
 
+            $distance = 0;
             $allPresent = true;
             foreach ($nameTokens as $token) {
-                if (! isset($cellSet[$token])) {
+                $closest = $this->closestDistance($token, $cellTokens);
+                if ($closest === null) {
                     $allPresent = false;
                     break;
                 }
+                $distance += $closest;
             }
             if (! $allPresent) {
                 continue;
@@ -209,10 +240,90 @@ class PersonImportService
 
             $score = count($nameTokens);
             $len = mb_strlen((string) $name);
-            if ($score > $bestScore || ($score === $bestScore && $len > $bestLen)) {
+            $better = $score > $bestScore
+                || ($score === $bestScore && $distance < $bestDistance)
+                || ($score === $bestScore && $distance === $bestDistance && $len > $bestLen);
+
+            if ($better) {
                 $best = ['id' => (int) $id, 'name' => (string) $name];
                 $bestScore = $score;
+                $bestDistance = $distance;
                 $bestLen = $len;
+            }
+        }
+
+        return $best ?? $this->matchWholePhrase($cellTokens, $refs);
+    }
+
+    /**
+     * Jarak terkecil antara satu kata master data dan kata-kata di dalam sel,
+     * atau null bila tidak ada yang cukup mirip.
+     *
+     * @param  array<int, string>  $cellTokens
+     */
+    private function closestDistance(string $token, array $cellTokens): ?int
+    {
+        $best = null;
+
+        foreach ($cellTokens as $cellToken) {
+            if ($cellToken === $token) {
+                return 0;
+            }
+
+            $limit = $this->maxDistance(max(strlen($token), strlen($cellToken)));
+            if ($limit === 0 || strlen($token) > 255 || strlen($cellToken) > 255) {
+                continue;
+            }
+
+            $distance = levenshtein($token, $cellToken);
+            if ($distance <= $limit && ($best === null || $distance < $best)) {
+                $best = $distance;
+            }
+        }
+
+        return $best;
+    }
+
+    /** Berapa huruf salah yang dimaafkan untuk kata sepanjang $len. */
+    private function maxDistance(int $len): int
+    {
+        if ($len <= 3) {
+            return 0;
+        }
+
+        return $len <= 6 ? 1 : 2;
+    }
+
+    /**
+     * Cadangan terakhir: bandingkan seluruh kalimat yang sudah dinormalkan.
+     * Hanya menolong bila panjang keduanya berdekatan, jadi aman dari salah tebak.
+     *
+     * @param  array<int, string>  $cellTokens
+     * @param  array<int, string>  $refs
+     * @return array{id: int, name: string}|null
+     */
+    private function matchWholePhrase(array $cellTokens, array $refs): ?array
+    {
+        $cell = implode(' ', $cellTokens);
+        if ($cell === '' || strlen($cell) > 255) {
+            return null;
+        }
+
+        $best = null;
+        $bestSimilarity = 0.0;
+
+        foreach ($refs as $id => $name) {
+            $ref = implode(' ', $this->tokenize($name));
+            if ($ref === '' || strlen($ref) > 255) {
+                continue;
+            }
+
+            $longest = max(strlen($cell), strlen($ref));
+            $similarity = 1 - (levenshtein($cell, $ref) / $longest);
+
+            if ($similarity >= self::PHRASE_SIMILARITY && $similarity > $bestSimilarity) {
+                $best = ['id' => (int) $id, 'name' => (string) $name];
+                $bestSimilarity = $similarity;
             }
         }
 
@@ -220,7 +331,9 @@ class PersonImportService
     }
 
     /**
-     * Lowercase and split into word tokens on any non-letter/non-digit.
+     * Huruf kecil, buang '&' agar "R&D" jadi satu kata "rd" sementara
+     * "Sales & Marketing" tetap dua kata, lalu pecah pada tiap karakter yang bukan
+     * huruf/angka. Terakhir tiap kata dipetakan ke bentuk kanoniknya.
      *
      * @return array<int, string>
      */
@@ -231,6 +344,9 @@ class PersonImportService
             return [];
         }
 
-        return preg_split('/[^\p{L}\p{N}]+/u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $value = str_replace('&', '', $value);
+        $tokens = preg_split('/[^\p{L}\p{N}]+/u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_map(fn (string $t) => self::TOKEN_ALIASES[$t] ?? $t, $tokens);
     }
 }

@@ -1,0 +1,38 @@
+; Systemd unit for the queue worker that actually delivers email notifications.
+; Every notification in app/Notifications implements ShouldQueue, so without this
+; running, mail is only written to the `jobs` table and never sent.
+;
+; Install (Linux server):
+;   sudo cp deploy/helpdesk-queue.service /etc/systemd/system/
+;   sudo systemctl daemon-reload
+;   sudo systemctl enable --now helpdesk-queue
+;   sudo systemctl status helpdesk-queue
+;
+; Adjust User, Group and WorkingDirectory to match the server.
+
+[Unit]
+Description=Helpdesk DKJ queue worker
+After=network.target mysql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/helpdesk
+Restart=always
+RestartSec=5
+
+; --tries=25 matches BrandedMail::$tries, so the rate limiter can release and
+; retry a job without the worker failing it early.
+; --max-time=3600 recycles the process hourly to avoid long-lived memory growth.
+ExecStart=/usr/bin/php artisan queue:work --queue=default --sleep=3 --tries=25 --max-time=3600
+
+; Let `php artisan queue:restart` drain the worker gracefully after a deploy.
+ExecReload=/bin/kill -USR1 $MAINPID
+KillSignal=SIGTERM
+TimeoutStopSec=90
+
+StandardOutput=append:/var/www/helpdesk/storage/logs/queue-worker.log
+StandardError=append:/var/www/helpdesk/storage/logs/queue-worker.log
+
+[Install]
+WantedBy=multi-user.target

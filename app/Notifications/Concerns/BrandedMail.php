@@ -11,7 +11,8 @@ use Symfony\Component\Mime\Email;
  *  - Embeds the company logo (logo-dkj.png) inline via Content-ID so it always
  *    renders in the recipient's inbox, even when the app runs on localhost.
  *  - Adds a consistent signature/salutation (regards) with the acting person's name.
- *  - Rate-limits queued sends to Resend's free-tier limit (2 req/sec).
+ *  - Rate-limits queued sends to whatever the configured SMTP host accepts
+ *    (mail.rate_limit_per_second).
  *
  * Header template (resources/views/vendor/mail/html/header.blade.php) references
  * `cid:dkj-logo`, which this trait wires up.
@@ -23,13 +24,13 @@ trait BrandedMail
 {
     /**
      * Allow plenty of attempts: each time RateLimited releases a job back to the
-     * queue (because the 2/sec limit was hit), it counts as an attempt. We give a
-     * generous tries budget so throttled jobs are retried, not failed.
+     * queue (because the per-second limit was hit), it counts as an attempt. We
+     * give a generous tries budget so throttled jobs are retried, not failed.
      */
     public int $tries = 25;
 
     /**
-     * But only tolerate 2 REAL exceptions (e.g. genuine Resend/SMTP error) before
+     * But only tolerate 2 REAL exceptions (e.g. a genuine SMTP error) before
      * failing the job — so a true error still fails fast instead of retrying 25x.
      */
     public int $maxExceptions = 2;
@@ -41,13 +42,14 @@ trait BrandedMail
     public int $backoff = 3;
 
     /**
-     * Queue middleware: throttle email jobs to Resend's 2 requests/second limit.
-     * When the limit is hit, the job is released back to the queue and retried
-     * after `backoff` seconds — so no email is dropped, just delayed a moment.
+     * Queue middleware: throttle email jobs to the 'mail' rate limiter defined in
+     * AppServiceProvider. When the limit is hit, the job is released back to the
+     * queue and retried after `backoff` seconds — so no email is dropped, just
+     * delayed a moment.
      */
     public function middleware(object $notifiable): array
     {
-        return [new RateLimited('resend')];
+        return [new RateLimited('mail')];
     }
 
     /**

@@ -699,7 +699,20 @@
                                 @endif
 
                                 @if($tiket->id_penanggung_jawab === auth()->id() && $tiket->statusTiket?->nama_status === 'In Progress' && ! $tiket->siap_konfirmasi)
-                                    @php $resolveBlocked = $tiket->repetitive_review_state !== 'none'; @endphp
+                                    @php
+                                        // Both open review states block Mark as Resolved, but they wait on
+                                        // different people. Saying "awaiting user" while the ball is in the
+                                        // admin's court reads as a dead end.
+                                        $resolveBlocked = $tiket->repetitive_review_state !== 'none';
+                                        $resolveBlockedHint = match ($tiket->repetitive_review_state) {
+                                            'admin_requested_off' => 'Waiting for the requester to answer your repetitive request',
+                                            'user_refused' => 'Answer the refusal above to continue',
+                                            default => null,
+                                        };
+                                        $resolveBlockedTitle = $tiket->repetitive_review_state === 'user_refused'
+                                            ? 'Confirm or decline the refusal first'
+                                            : 'Finalize repetitive status first';
+                                    @endphp
                                     <button wire:click="openResolveConfirm"
                                             @class([
                                                 'inline-flex items-center gap-1.5 rounded-lg bg-green-500 px-4 py-2 text-xs font-semibold text-white transition-all active:scale-95',
@@ -708,7 +721,7 @@
                                                 'disabled:opacity-75 disabled:cursor-wait' => ! $resolveBlocked,
                                             ])
                                             @disabled($resolveBlocked)
-                                            title="{{ $resolveBlocked ? 'Finalize repetitive status first' : '' }}"
+                                            title="{{ $resolveBlocked ? $resolveBlockedTitle : '' }}"
                                             wire:loading.attr="disabled" wire:target="openResolveConfirm">
                                         <span wire:loading.remove wire:target="openResolveConfirm">Mark as Resolved</span>
                                         <span wire:loading wire:target="openResolveConfirm" class="inline-flex items-center gap-1.5">
@@ -719,10 +732,10 @@
                                             Loading...
                                         </span>
                                     </button>
-                                    @if($resolveBlocked)
+                                    @if($resolveBlocked && $resolveBlockedHint)
                                         <span class="inline-flex items-center gap-1.5 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-medium text-amber-700">
                                             <x-ui.icon name="information-circle" class="size-3.5 text-amber-600" />
-                                            Awaiting user confirmation for repetitive change
+                                            {{ $resolveBlockedHint }}
                                         </span>
                                     @endif
                                 @elseif($tiket->id_penanggung_jawab === auth()->id() && $tiket->statusTiket?->nama_status === 'In Progress' && $tiket->siap_konfirmasi)

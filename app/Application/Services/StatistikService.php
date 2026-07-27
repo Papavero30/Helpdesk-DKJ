@@ -99,6 +99,10 @@ class StatistikService
      * - awaiting_confirmation: admin marked resolved (siap_konfirmasi=true), user must confirm/reject
      * - awaiting_rating: Close tickets the user hasn't rated yet
      * - awaiting_repetitive: admin requested repetitive OFF, user must accept/refuse
+     * - awaiting_pause: admin asked to pause the deadline, user must approve/reject
+     *
+     * A pause left unanswered is auto approved after 24 hours, so it belongs here as
+     * much as the other three: the requester loses the choice by not making one.
      */
     private function userPendingTasks(int $userId): array
     {
@@ -131,10 +135,24 @@ class StatistikService
             ->limit(20)
             ->get();
 
+        // An extension asks for its own answer while the original pause stays frozen,
+        // so both are just pending rows here. The eager load is narrowed to the pending
+        // ones, which lets the dashboard read the waiting time straight off the relation.
+        $awaitingPause = Tiket::query()
+            ->with(['kategori', 'lokasi', 'statusTiket'])
+            ->with(['slaPauseRequests' => fn ($q) => $q->where('state', 'pending')->orderByDesc('requested_at')])
+            ->where('id_pengguna', $userId)
+            ->whereHas('slaPauseRequests', fn ($q) => $q->where('state', 'pending'))
+            ->limit(20)
+            ->get()
+            ->sortByDesc(fn (Tiket $t) => $t->slaPauseRequests->first()?->requested_at)
+            ->values();
+
         return [
             'awaiting_confirmation' => $awaitingConfirmation,
             'awaiting_rating' => $awaitingRating,
             'awaiting_repetitive' => $awaitingRepetitive,
+            'awaiting_pause' => $awaitingPause,
         ];
     }
 
